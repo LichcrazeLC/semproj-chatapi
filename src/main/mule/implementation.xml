@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+<db:config name="user_db_config" doc:name="Database Config" doc:id="bb16228b-1702-4905-a8e2-864c66e74b9f" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" password="rootpass" database="usersdb" >
+			<db:connection-properties >
+				<db:connection-property key="useSSL" value="false" />
+			</db:connection-properties>
+		</db:my-sql-connection>
+	</db:config>
+	<flow name="getAllChats" doc:id="2233e08c-b719-420b-9530-9bf30bc3bb62" >
+		<db:select doc:name="Select" doc:id="9ccc3dc4-d0d6-47b6-9428-99df172d2fa9" config-ref="user_db_config">
+			<db:sql >SELECT chat_id, user_one, user_two FROM usersdb.users u INNER JOIN usersdb.chats c ON u.Id = c.user_one WHERE u.Email  = :Email UNION
+SELECT chat_id, user_one, user_two FROM usersdb.users u INNER JOIN usersdb.chats c ON u.Id = c.user_two WHERE u.Email  = :Email;</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+ "Email": attributes.queryParams.email
+}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="6ede768c-0c4b-47f5-9dea-98cc5884e67c" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="CreateChat" doc:id="4e9dd8a3-38cb-44f4-96b8-b245f7d4acc8" >
+		<set-variable value="#[payload.'user_two']" doc:name="Set Variable" doc:id="17d8fe84-fb11-46ce-bb4a-04b120a94f63" variableName="target_user"/>
+		<db:select doc:name="Select" doc:id="99fb2c3d-f1f7-47e8-b6d2-3e4be454f8b4" config-ref="user_db_config">
+			<db:sql >SELECT Id FROM usersdb.users WHERE Email = :Email</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+ "Email": attributes.queryParams.email
+}]]]></db:input-parameters>
+		</db:select>
+		<set-variable value="#[payload[0].Id]" doc:name="Set Variable" doc:id="459c3657-0e7e-4d06-bc7a-4a7994802721" variableName="source_user"/>
+		<choice doc:name="Choice" doc:id="16263556-f182-491c-ba5f-4e9381dbadf0" >
+			<when expression="#[vars.target_user &gt; vars.source_user]">
+				<db:insert doc:name="Insert" doc:id="1f31ef9d-d0d5-46f2-9170-3272b9ce5af3" config-ref="user_db_config">
+			<db:sql>INSERT INTO `usersdb`.`chats`
+(`user_one`,
+`user_two`)
+VALUES
+(:user_one,
+:user_two);
+</db:sql>
+			<db:input-parameters><![CDATA[#[{
+ "user_one": vars.source_user,
+ "user_two": vars.target_user
+}]]]></db:input-parameters>
+		</db:insert>
+			</when>
+			<otherwise >
+				<db:insert doc:name="Insert" doc:id="81cfc7dc-be79-44d1-8bcb-9c6ec4242d7c" config-ref="user_db_config" >
+					<db:sql >INSERT INTO `usersdb`.`chats`
+(`user_one`,
+`user_two`)
+VALUES
+(:user_one,
+:user_two);
+</db:sql>
+					<db:input-parameters ><![CDATA[#[{
+ "user_one": vars.target_user,
+ "user_two": vars.source_user
+}]]]></db:input-parameters>
+				</db:insert>
+			</otherwise>
+		</choice>
+		<ee:transform doc:name="Transform Message" doc:id="d98c54be-0335-4467-acea-f996786f3e4c">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+
+{
+ "Message": "Chat created! Bravo, Filip, vad ca stii cum sa te folosesti de un api a DOUA OARA DEJA! DAAAAAAAAAAAAAAAMN"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="getAllMessages" doc:id="b7b81039-4023-47a1-9caa-c34b680dbe84" >
+		<db:select doc:name="Select" doc:id="c874f717-55b7-4de5-aa1b-d0956839ae08" config-ref="user_db_config" >
+			<db:sql >SELECT * FROM usersdb.messages WHERE chat = :Id</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+ "Id": attributes.uriParams.Id
+}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="c3f2f1c1-865b-4c9c-8e8b-d70632528c31" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="SendMessage" doc:id="837b8a89-d083-435d-bf20-d0ede784e68b" >
+		<db:insert doc:name="Insert" doc:id="bfd883c0-3d3b-4d0a-9e25-3b539a52cc20" config-ref="user_db_config">
+			<db:sql >INSERT INTO `usersdb`.`messages`
+(`chat`, `to_user`, `from_user`, `status`, `inclusion_date`, `message`)
+VALUES
+(:chat, :to_user, :from_user, :status, :inclusion_date, :message);
+</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+ "chat": attributes.uriParams.Id,
+ "to_user": payload.to_user,
+ "from_user": payload.from_user,
+ "status": "sent!",
+ "inclusion_date": now() as String {format: "yyyy-MM-dd HH:mm:ss"},
+ "message": payload.message
+}]]]></db:input-parameters>
+		</db:insert>
+		<ee:transform doc:name="Transform Message" doc:id="cd0515e6-fdac-4fa1-a004-f35ca59a0da0" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+ "Message": "Message sent!"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>

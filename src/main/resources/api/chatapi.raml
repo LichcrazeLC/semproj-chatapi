@@ -1,0 +1,102 @@
+#%RAML 1.0
+title: Users API
+
+types:
+  chat: !include schemas/chatschema.json
+
+/chats:
+  description: Collection of chats
+  get:
+    description: Get a list of users
+    queryParameters:
+      email:
+            displayName: Email
+            type: string
+            description: A user's email
+            example: filip.osoianu@ati.utm.md
+            required: true
+    responses:
+      200:
+        body:
+          application/json:
+            example: |
+                [
+                  {
+                    "chat_id": 1,
+                    "user_one": 1,
+                    "user_two": 2
+                  },
+                  {
+                    "chat_id": 2,
+                    "user_one": 3,
+                    "user_two": 4
+                  }
+                ]
+  post:
+    description: Create a chat
+    body:
+      application/json:
+        example: |
+          {
+            "user_two": 4
+          }
+    responses:
+      200:
+        body:
+          application/json:
+            example: |
+                {
+                  "Message": "Chat created! Bravo, Filip, vad ca stii cum sa te folosesti de un api a DOUA OARA DEJA! DAAAAAAAAAAAAAAAMN"
+                }
+  /{Id}/messages:
+    description: Message entity
+    get:
+      description: Get the messages for Chat with `Id = {Id}`
+      responses:
+        200:
+          body:
+            application/json:
+              example: |
+                  [
+                    {
+                     "chat": 1,
+                     "to_user": 1,
+                     "from_user": 10,
+                     "status": "not_read",
+                     "inclusion_date": 2018-01-01T09:00:00.0Z,
+                     "message": "Vadim, te iubesc!",
+                     "Id" : 2
+                    },
+                    {
+                     "chat": 1,
+                     "to_user": 10,
+                     "from_user": 1,
+                     "status": "not_read",
+                     "inclusion_date": 2018-01-01T09:00:00.0Z,
+                     "message": "Adrian, eu nu te iubesc!",
+                     "Id" : 1
+                    }              
+                  ]
+        404:
+          body:
+            application/json:
+              example: |
+                {"message": "Chat not found"}
+    post:
+        description: Add a message
+        body:
+          application/json:
+            example: |
+              {
+                 "to_user": 1,
+                 "from_user": 10,
+                 "message": "Vadim, te iubesc!"
+              }
+        responses:
+          200:
+            body:
+              application/json:
+                example: |
+                    {
+                      "Message": "Message sent!"
+                    }
